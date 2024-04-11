@@ -8,15 +8,18 @@ app.use(express.json());
 // let messages = {};
 
 let businesses = {};
+let business_index = 0;
 let reviews = {};
+let review_index = 0;
 let photos = {};
+let photo_index = 0;
 
 // // Start listening on that port for connections
 app.listen(process.env.PORT, () => {
     console.log("Server ready!");
 });
 
-///////////////////////////////////////////////////////////// BUSINESSES
+//////////////////////////////////////////////////////////////////////////////////////// BUSINESSES
 app.get('/businesses', (req, res, next) => {
     var page = parseInt(req.query.page) || 1;
     var numPerPage = 5;
@@ -45,25 +48,46 @@ app.get('/businesses', (req, res, next) => {
     });
     res.send(businesses);
 });
-/////////////////////////////////////////////////////////////
+
+app.post("/businesses", (req, res, next) => {
+    business_index++;
+
+    businesses[business_index] = req.body;
+    res.status(200);
+    res.send({
+        "name": req.body.name,
+        "address": req.body.address,
+        "city": req.body.city,
+        "state": req.body.state,
+        "zip": req.body.zip,
+        "phone": req.body.phone,
+        "category": req.body.category,
+        "subcategory": req.body.subcategory,
+        // figure out how to implement website and email
+        "links": {
+            "business": `/businesses/${current_message_index}`
+        }
+    });
+});
+////////////////////////////////////////////////////////////////////////////////////////
 
 // //Handle certain API endpoints
 // app.get("/messages", (req, res, next) => {
 //     res.send(messages);
 // });
 
-// app.post("/messages", (req, res, next) => {
-//     current_message_index++;
+app.post("/messages", (req, res, next) => {
+    current_message_index++;
 
-//     messages[current_message_index] = req.body;
+    messages[current_message_index] = req.body;
 
-//     res.send({
-//         "index": current_message_index, 
-//         "links": {
-//             "message": `/messages/${current_message_index}`
-//         }
-//     });
-// });
+    res.send({
+        "index": current_message_index, 
+        "links": {
+            "message": `/messages/${current_message_index}`
+        }
+    });
+});
 
 // app.get("/messages/:index", (req, res, next) => {
 //     const index = req.params.index;
