@@ -9,6 +9,7 @@ app.use(express.json());
 
 let businesses = {};
 let business_index = 0;
+let business_fields = ["name", "address", "city", "state", "zip", "phone", "category", "subcategory", "email", "website"];
 let reviews = {};
 let review_index = 0;
 let photos = {};
@@ -20,15 +21,28 @@ app.listen(process.env.PORT, () => {
 });
 
 //////////////////////////////////////////////////////////////////////////////////////// BUSINESSES
+
+function verify(body, skip) {
+    for (let i = 0; i < Object.keys(body).length; i++) {
+        console.log(Object.keys(body)[i])
+        if (Object.keys(body).includes(business_fields[i])) {
+            continue;
+        } else {
+            return false;
+        }
+    } 
+    return true;
+};
+
 app.get('/businesses', (req, res, next) => {
     var page = parseInt(req.query.page) || 1;
     var numPerPage = 5;
-    var lastPage = Math.ceil(lodgings.length / numPerPage);
+    var lastPage = Math.ceil(businesses.length / numPerPage);
     page = page < 1 ? 1 : page;
     page = page > lastPage ? lastPage : page;
     var start = (page - 1) * numPerPage;
     var end = start + numPerPage;
-    var pageBusinesses = businesses.slice(start, end);
+    var pageBusinesses = Object.entries(businesses).slice(start, end);
     var links = {};
     if (page < lastPage) {
         links.nextPage = '/businesses?page=' + (page + 1);
@@ -50,24 +64,18 @@ app.get('/businesses', (req, res, next) => {
 });
 
 app.post("/businesses", (req, res, next) => {
-    business_index++;
-
-    businesses[business_index] = req.body;
-    res.status(200);
-    res.send({
-        "name": req.body.name,
-        "address": req.body.address,
-        "city": req.body.city,
-        "state": req.body.state,
-        "zip": req.body.zip,
-        "phone": req.body.phone,
-        "category": req.body.category,
-        "subcategory": req.body.subcategory,
-        // figure out how to implement website and email
-        "links": {
-            "business": `/businesses/${current_message_index}`
-        }
-    });
+    if (verify(req.body, next) == true) {
+        business_index++;
+    
+        businesses[business_index] = req.body;
+        req.body.links = {"business": `/businesses/${business_index}`};
+    
+        res.status(200);
+        res.send(req.body);
+    } else {
+        res.status(404);
+        res.send("Error: Something went wrong");
+    }
 });
 ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -76,18 +84,18 @@ app.post("/businesses", (req, res, next) => {
 //     res.send(messages);
 // });
 
-app.post("/messages", (req, res, next) => {
-    current_message_index++;
+// app.post("/messages", (req, res, next) => {
+//     current_message_index++;
 
-    messages[current_message_index] = req.body;
+//     messages[current_message_index] = req.body;
 
-    res.send({
-        "index": current_message_index, 
-        "links": {
-            "message": `/messages/${current_message_index}`
-        }
-    });
-});
+//     res.send({
+//         "index": current_message_index, 
+//         "links": {
+//             "message": `/messages/${current_message_index}`
+//         }
+//     });
+// });
 
 // app.get("/messages/:index", (req, res, next) => {
 //     const index = req.params.index;
