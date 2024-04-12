@@ -9,7 +9,8 @@ app.use(express.json());
 
 let businesses = {};
 let business_index = 0;
-let business_fields = ["name", "address", "city", "state", "zip", "phone", "category", "subcategory", "email", "website"];
+let required_business_fields = ["name", "address", "city", "state", "zip", "phone", "category", "subcategory"];
+let optional_business_fields = ["email", "website"];
 let reviews = {};
 let review_index = 0;
 let photos = {};
@@ -22,15 +23,29 @@ app.listen(process.env.PORT, () => {
 
 //////////////////////////////////////////////////////////////////////////////////////// BUSINESSES
 
-function verify(body, skip) {
-    for (let i = 0; i < Object.keys(body).length; i++) {
-        console.log(Object.keys(body)[i])
-        if (Object.keys(body).includes(business_fields[i])) {
+function verify(body) {
+    // user passes in object
+    // object should be iterated over, and each key of object should be checked to make sure it exists in required or optional fields
+    
+    // object should be checked to make sure it has ALL required fields
+
+    // iterate over required fields
+    body_keys = Object.keys(body);
+
+    for (let i = 0; i < required_business_fields.length; i++) {
+        if (body_keys.includes(required_business_fields[i])) {
             continue;
         } else {
             return false;
         }
-    } 
+    }
+    for (let j = 0; j < body_keys.length; j++) {
+        if (!required_business_fields.includes(body_keys[j]) && !optional_business_fields.includes(body_keys[j])) {
+            return false;
+        } else {
+            continue;
+        }
+    }
     return true;
 };
 
@@ -60,11 +75,10 @@ app.get('/businesses', (req, res, next) => {
         businesses: pageBusinesses,
         links: links
     });
-    res.send(businesses);
 });
 
 app.post("/businesses", (req, res, next) => {
-    if (verify(req.body, next) == true) {
+    if (verify(req.body) == true) {
         business_index++;
     
         businesses[business_index] = req.body;
@@ -76,6 +90,41 @@ app.post("/businesses", (req, res, next) => {
         res.status(404);
         res.send("Error: Something went wrong");
     }
+});
+
+app.get("businesses/:businessID", (req, res, next) => {
+    var businessID = parseInt(req.params.businessID);
+    if (businesses[businessID]) {
+        res.status(200).json(businesses[businessID]);
+    } else {
+        next();
+    }
+});
+
+app.put("/businesses/:businessID", (req, res, next) => {
+    var businessID = parseInt(req.params.businessID);
+    if (businesses[businessID]) {
+        if (verify(req.body) == true) {
+            businesses[business_index] = req.body;
+            res.status(200).json({
+                links: {
+                    business: `/businesses/${businessID}`
+                }
+            });
+        };
+    } else {
+        next();
+    };
+});
+
+app.delete('/businesses/:businessID', (req, res, next) => {
+    var businessID = parseInt(req.params.businessID);
+    if (businesses[businessID]) {
+        businesses[businessID] = null;
+        res.status(204).end();
+    } else {
+        next();
+    };
 });
 ////////////////////////////////////////////////////////////////////////////////////////
 
