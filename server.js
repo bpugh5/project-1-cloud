@@ -4,9 +4,6 @@ var express = require('express');
 var app = express();
 app.use(express.json());
 
-// let current_message_index = 0;
-// let messages = {};
-
 let businesses = {};
 let business_index = 0;
 let required_business_fields = ["name", "address", "city", "state", "zip", "phone", "category", "subcategory"];
