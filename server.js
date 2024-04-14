@@ -16,6 +16,8 @@ let required_review_fields = ["stars", "dollar signs"];
 let optional_review_fields = ["review"];
 let review_index = 0;
 let photos = {};
+let required_photo_fields = ["image"];
+let optional_photo_fields = ["caption"];
 let photo_index = 0;
 
 // // Start listening on that port for connections
@@ -23,9 +25,7 @@ app.listen(process.env.PORT, () => {
     console.log("Server ready!");
 });
 
-//////////////////////////////////////////////////////////////////////////////////////// BUSINESSES
-
-function verify(body) {
+function post_verify(body, req_fields, opt_fields) {
     // user passes in object
     // object should be iterated over, and each key of object should be checked to make sure it exists in required or optional fields
     
@@ -33,23 +33,41 @@ function verify(body) {
 
     // iterate over required fields
     body_keys = Object.keys(body);
+    if (body_keys.length < req_fields.length || body_keys.length > (req_fields.length + opt_fields.length)) {
+        return false;
+    };
 
-    for (let i = 0; i < required_business_fields.length; i++) {
-        if (body_keys.includes(required_business_fields[i])) {
+    for (let i = 0; i < req_fields.length; i++) {
+        if (body_keys.includes(req_fields[i])) {
             continue;
         } else {
             return false;
-        }
-    }
+        };
+    };
     for (let j = 0; j < body_keys.length; j++) {
-        if (!required_business_fields.includes(body_keys[j]) && !optional_business_fields.includes(body_keys[j])) {
+        if (!req_fields.includes(body_keys[j]) && !opt_fields.includes(body_keys[j])) {
             return false;
         } else {
             continue;
-        }
-    }
+        };
+    };
     return true;
 };
+
+function put_verify(body, req_fields, opt_fields) {
+    body_keys = Object.keys(body);
+
+    for (let j = 0; j < body_keys.length; j++) {
+        if (!req_fields.includes(body_keys[j]) && !opt_fields.includes(body_keys[j])) {
+            return false;
+        } else {
+            continue;
+        };
+    };
+    return true;
+};
+
+//////////////////////////////////////////////////////////////////////////////////////// BUSINESSES
 
 app.get('/businesses', (req, res, next) => {
     var page = parseInt(req.query.page) || 1;
@@ -79,40 +97,53 @@ app.get('/businesses', (req, res, next) => {
     });
 });
 
-app.post("/businesses", (req, res, next) => {
-    if (verify(req.body) == true) {
+app.post("/businesses", (req, res) => {
+    if (post_verify(req.body, required_business_fields, optional_business_fields) == true) {
         business_index++;
     
         businesses[business_index] = req.body;
         req.body.links = {"business": `/businesses/${business_index}`};
     
-        res.status(200);
-        res.send(req.body);
+        res.status(201).json({
+            id: business_index,
+            links: {
+                business: `/businesses/${business_index}`
+            }
+        });
     } else {
         res.status(404);
-        res.send("Error: Something went wrong");
-    }
+        let response_text = "Error: Something went wrong";
+        if (Object.keys(req.body).length < required_business_fields.length) {
+            response_text = "Error: Missing field(s)";
+        }
+        res.send(response_text);
+    };
 });
 
-app.get("businesses/:businessID", (req, res, next) => {
+app.get("/businesses/:businessID", (req, res, next) => {
     var businessID = parseInt(req.params.businessID);
     if (businesses[businessID]) {
         res.status(200).json(businesses[businessID]);
     } else {
         next();
-    }
+    };
 });
 
 app.put("/businesses/:businessID", (req, res, next) => {
     var businessID = parseInt(req.params.businessID);
     if (businesses[businessID]) {
-        if (verify(req.body) == true) {
-            businesses[req.params.businessID] = req.body;
+        if (put_verify(req.body, required_business_fields, optional_business_fields) == true) {
+            var body_keys = Object.keys(req.body);
+            for (let i = 0; i < body_keys.length; i++) {
+                businesses[businessID][body_keys[i]] = req.body[body_keys[i]];
+            }
             res.status(200).json({
                 links: {
-                    business: `/businesses/${req.params.businessID}`
+                    business: `/businesses/${businessID}`
                 }
             });
+        } else {
+            res.status(400).send("Error: Invalid body");
         };
     } else {
         next();
@@ -128,46 +159,12 @@ app.delete('/businesses/:businessID', (req, res, next) => {
         next();
     };
 });
+
 ////////////////////////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////////////////////////////////////// REVIEWS
 
-function verify(body) {
-    body_keys = Object.keys(body);
-
-    for (let i = 0; i < required_review_fields.length; i++) {
-        if (body_keys.includes(required_review_fields[i])) {
-            continue;
-        } else {
-            return false;
-        }
-    }
-    for (let j = 0; j < body_keys.length; j++) {
-        if (!required_review_fields.includes(body_keys[j]) && !optional_review_fields.includes(body_keys[j])) {
-            return false;
-        } else {
-            continue;
-        }
-    }
-    return true;
-};
-
-app.post("/businesses/:businessID/reviews", (req, res, next) => {
-    if (verify(req.body) == true) {
-        review_index++;
-    
-        reviews[review_index] = req.body;
-        // DOES THIS WORK!?!?!?? WTF
-        req.body.links = {"review": `/businesses/${req.params.businessID}/reviews/${review_index}`};
-    
-        res.status(200);
-        res.send(req.body);
-    } else {
-        res.status(404);
-        res.send("Error: Something went wrong");
-    }
-});
-
+// get all reviews of a business
 app.get('/businesses/:businessID/reviews', (req, res, next) => {
     var page = parseInt(req.query.page) || 1;
     var numPerPage = 5;
@@ -179,12 +176,12 @@ app.get('/businesses/:businessID/reviews', (req, res, next) => {
     var pageReviews = Object.entries(reviews).slice(start, end);
     var links = {};
     if (page < lastPage) {
-        links.nextPage = '/reviews?page=' + (page + 1);
-        links.lastPage = '/reviews?page=' + lastPage;
+        links.nextPage = `/businesses/${req.query.businessID}/reviews?page=` + (page + 1);
+        links.lastPage = `/businesses/${req.query.businessID}/reviews?page=` + lastPage;
     };
     if (page > 1) {
-        links.prevPage = '/reviews?page=' + (page - 1);
-        links.firstPage = '/reviews?page=1';
+        links.prevPage = `/businesses/${req.query.businessID}/reviews?page=` + (page - 1);
+        links.firstPage = `/businesses/${req.query.businessID}/reviews?page=1`;
     };
     res.status(200).json({
         pageNumber: page,
@@ -196,13 +193,38 @@ app.get('/businesses/:businessID/reviews', (req, res, next) => {
     });
 });
 
+app.post("/businesses/:businessID/reviews", (req, res, next) => {
+    if (post_verify(req.body, required_review_fields, optional_review_fields) == true) {
+        review_index++;
+    
+        reviews[review_index] = req.body;
+        // DOES THIS WORK!?!?!?? WTF
+        req.body.links = {"review": `/businesses/${req.params.businessID}/reviews/${review_index}`};
+    
+        res.status(201);
+        res.send(req.body);
+    } else {
+        res.status(404);
+        let response_text = "Error: Something went wrong";
+        if (Object.keys(req.body).length < required_review_fields.length) {
+            response_text = "Error: Missing field(s)";
+        }
+        res.send(response_text);
+    }
+});
+
+
 app.put("/businesses/:businessID/reviews/:reviewID", (req, res, next) => {
     var businessID = parseInt(req.params.businessID);
     var reviewID = parseInt(req.params.reviewID);
-    if (businesses[businessID]) {
+    // to be implemented in next part(?)
+    // if (businesses[businessID]) {
         if (reviews[reviewID]) {
-            if (verify(req.body) == true) {
-                reviews[req.params.reviewID] = req.body;
+            if (put_verify(req.body, required_review_fields, optional_review_fields) == true) {
+                var body_keys = Object.keys(req.body);
+                for (let i = 0; i < body_keys.length; i++) {
+                    reviews[reviewID][body_keys[i]] = req.body[body_keys[i]];
+                }
                 res.status(200).json({
                     links: {
                         review: `/businesses/${businessID}/reviews/${reviewID}`,
@@ -210,65 +232,158 @@ app.put("/businesses/:businessID/reviews/:reviewID", (req, res, next) => {
                         creator: `/users/1`,
                     }
                 });
+            } else {
+                res.status(400).send("Error: Invalid body");
             };
         } else {
             next();
         };
-    };
+    // } else {
+        // next();
+    // };
 });
 
 app.delete('/businesses/:businessID/reviews/:reviewID', (req, res, next) => {
     var businessID = parseInt(req.params.businessID);
     var reviewID = parseInt(req.params.reviewID);
-    if (businesses[businessID]) {
+    // to be implemented in next part(?)
+    // if (businesses[businessID]) {
         if (reviews[reviewID]) {
             reviews[reviewID] = null;
             res.status(204).end();
         } else {
             next();
         };
-    };
+    // };
 });
 
 app.get('/users/:userID/reviews', (req, res, next) => {
     var userID = parseInt(req.params.userID);
-    res.status(200).send(a)
+    res.status(200).send(reviews)
 });
 ////////////////////////////////////////////////////////////////////////////////////////
 
-// //Handle certain API endpoints
-// app.get("/messages", (req, res, next) => {
-//     res.send(messages);
-// });
+//////////////////////////////////////////////////////////////////////////////////////// PHOTOS
 
-// app.post("/messages", (req, res, next) => {
-//     current_message_index++;
+app.post("/businesses/:businessID/photos", (req, res, next) => {
+    if (post_verify(req.body, required_photo_fields, optional_photo_fields) == true) {
+        photo_index++;
+    
+        photos[photo_index] = req.body;
+        req.body.links = {"photo": `/businesses/${business_index}/photos/${photo_index}`};
+    
+        res.status(201);
+        res.send(req.body);
+    } else {
+        res.status(404);
+        let response_text = "Error: Something went wrong";
+        if (Object.keys(req.body).length < required_photo_fields.length) {
+            response_text = "Error: Missing field(s)";
+        }
+        res.send(response_text);
+    }
+});
 
-//     messages[current_message_index] = req.body;
+app.delete('/users/:userID/photos/:photoID', (req, res, next) => {
+    // var userID = parseInt(req.params.userID);
+    var photoID = parseInt(req.params.photoID);
+    if (photos[photoID]) {
+        photos[photoID] = null;
+        res.status(204).end();
+    } else {
+        next();
+    };
+});
 
-//     res.send({
-//         "index": current_message_index, 
-//         "links": {
-//             "message": `/messages/${current_message_index}`
-//         }
-//     });
-// });
+app.put("/users/:userID/photos/:photoID", (req, res, next) => {
+    var photoID = parseInt(req.params.photoID);
+    var userID = parseInt(req.params.userID);
+    if (photos[photoID]) {
+        if (!("image" in req.body)) {
+            if (put_verify(req.body, required_photo_fields, optional_photo_fields) == true) {
+                var body_keys = Object.keys(req.body);
+                for (let i = 0; i < body_keys.length; i++) {
+                    photos[photoID][body_keys[i]] = req.body[body_keys[i]];
+                };
+                photos[req.params.photoID] = req.body;
+                res.status(200).json({
+                    links: {
+                        photo: `/users/${userID}/photos/${req.params.photoID}`
+                    }
+                });
+            } else {
+                res.status(400).send("Error: Invalid body");
+            };
+        } else {
+            res.status(400).send("Error: Cannot modify photo");
+        }
+    } else {
+        next();
+    };
+});
 
-// app.get("/messages/:index", (req, res, next) => {
-//     const index = req.params.index;
-//     if (index < 0 || index >= messages.length || !(String(index) in messages)) {
-//         res.status(404).send({"error": `Message ${index} not found`});
-//         next();
-//     }
-//     res.send(messages[index]);
-// });
+app.get('/users/:userID/photos', (req, res, next) => {
+    var userID = parseInt(req.query.userID);
+    var page = parseInt(req.query.page) || 1;
+    var numPerPage = 5;
+    var lastPage = Math.ceil(photos.length / numPerPage);
+    page = page < 1 ? 1 : page;
+    page = page > lastPage ? lastPage : page;
+    var start = (page - 1) * numPerPage;
+    var end = start + numPerPage;
+    var pagePhotos = Object.entries(photos).slice(start, end);
+    var links = {};
+    if (page < lastPage) {
+        links.nextPage = `/users/${userID}/photos?page=` + (page + 1);
+        links.lastPage = `/users/${userID}/photos?page=` + lastPage;
+    };
+    if (page > 1) {
+        links.prevPage = `/users/${userID}/photos?page=` + (page - 1);
+        links.firstPage = `/users/${userID}/photos?page=1`;
+    };
+    res.status(200).json({
+        pageNumber: page,
+        totalPages: lastPage,
+        pageSize: numPerPage,
+        totalCount: photos.length,
+        photos: pagePhotos,
+        links: links
+    });
+});
 
-// app.delete("/messages/:index", (req, res, next) => {
-//     const index = req.params.index;
-//     if (index < 0 || index >= messages.length) {
-//         res.status(404).send({"error": `Message ${index} not found`});
-//         next();
-//     };
-//     delete messages[index];
-//     res.status(200).send("Successfully removed.");
-// });
+app.get('/users/:userID/businesses', (req, res, next) => {
+    userID = parseInt(req.query.userID);
+    var page = parseInt(req.query.page) || 1;
+    var numPerPage = 5;
+    var lastPage = Math.ceil(businesses.length / numPerPage);
+    page = page < 1 ? 1 : page;
+    page = page > lastPage ? lastPage : page;
+    var start = (page - 1) * numPerPage;
+    var end = start + numPerPage;
+    var pageBusinesses = Object.entries(businesses).slice(start, end);
+    var links = {};
+    if (page < lastPage) {
+        links.nextPage = `/users/${userID}/businesses?page=` + (page + 1);
+        links.lastPage = `/users/${userId}/businesses?page=` + lastPage;
+    };
+    if (page > 1) {
+        links.prevPage = `/users/${userID}/businesses?page=` + (page - 1);
+        links.firstPage = `/users/${userID}/businesses?page=1`;
+    };
+    res.status(200).json({
+        pageNumber: page,
+        totalPages: lastPage,
+        pageSize: numPerPage,
+        totalCount: businesses.length,
+        businesses: pageBusinesses,
+        links: links
+    });
+});
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+app.use('*', function (req, res) {
+    res.status(404).send({
+        err: "The requested resource doesn't exist"
+    });
+});
