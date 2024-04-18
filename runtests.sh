@@ -292,7 +292,12 @@ printf "\n\n"
 # Exercise
 curl http://localhost:3000/users/1/photos
 
-# ###
+###
+
+status 'Initial GET user businesses should return all businesses (for now)'
+curl http://localhost:3000/users/1/businesses
+
+###
 
 status 'GET businesses/1/photos page 2 should return second page, not page 1'
 # Set up first page + 1 more that will be on second page

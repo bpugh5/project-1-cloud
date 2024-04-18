@@ -95,7 +95,11 @@ app.get('/businesses', (req, res, next) => {
 app.get("/businesses/:businessID", (req, res, next) => {
     var businessID = parseInt(req.params.businessID);
     if (businesses[businessID]) {
-        res.status(200).json({business: businesses[businessID], reviews: reviews, photos: photos});
+        res.status(200).json({
+            business: businesses[businessID], 
+            reviews: "/businesses/1/reviews", 
+            photos: "/businesses/1/photos"
+        });
     } else {
         next();
     };
@@ -106,12 +110,13 @@ app.post("/businesses", (req, res) => {
         business_index++;
     
         businesses[business_index] = req.body;
-        req.body.links = {"business": `/businesses/${business_index}`};
     
         res.status(201).json({
             id: business_index,
             links: {
-                business: `/businesses/${business_index}`
+                business: `/businesses/${business_index}`,
+                reviews: `/businesses/${business_index}/reviews`, 
+                photos: `/businesses/${business_index}/photos`
             }
         });
     } else {
@@ -190,7 +195,8 @@ app.get('/businesses/:businessID/reviews', (req, res, next) => {
 
 app.get('/users/:userID/reviews', (req, res, next) => {
     var userID = parseInt(req.params.userID);
-    res.status(200).send(reviews)
+    // This is where we'd check for an existing user
+    res.status(200).send(reviews);
 });
 
 app.post("/businesses/:businessID/reviews", (req, res, next) => {
@@ -199,10 +205,12 @@ app.post("/businesses/:businessID/reviews", (req, res, next) => {
         review_index++;
     
         reviews[review_index] = req.body;
-        req.body.links = {"review": `/businesses/${req.params.businessID}/reviews/${review_index}`};
     
-        res.status(201);
-        res.send(req.body);
+        res.status(201).json({
+            id: review_index,
+            business: `/businesses/${req.params.businessID}`,
+            review: `/businesses/${req.params.businessID}/reviews/${review_index}`
+        });
     } else {
         res.status(404);
         let response_text = "Error: Something went wrong";
@@ -237,9 +245,6 @@ app.put("/businesses/:businessID/reviews/:reviewID", (req, res, next) => {
         } else {
             next();
         };
-    // } else {
-        // next();
-    // };
 });
 
 app.delete('/businesses/:businessID/reviews/:reviewID', (req, res, next) => {
@@ -323,10 +328,12 @@ app.post("/businesses/:businessID/photos", (req, res, next) => {
         photo_index++;
     
         photos[photo_index] = req.body;
-        req.body.links = {"photo": `/businesses/${business_index}/photos/${photo_index}`};
     
-        res.status(201);
-        res.send(req.body);
+        res.status(201).json({
+            id: photo_index,
+            business: `/businesses/${req.params.businessID}`,
+            photo: `/businesses/${business_index}/photos/${photo_index}`
+        });
     } else {
         res.status(404);
         let response_text = "Error: Something went wrong";
